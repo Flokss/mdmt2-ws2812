@@ -124,7 +124,7 @@ class Main:
             self.log('stop_record')
 
     def _get_settings(self) -> dict:
-        def_cfg = {'spi': 1,  'num_led': 8, 'intensity':30}
+        def_cfg = {'spi': 0,  'num_led': 8, 'intensity':30}
         cfg = self.cfg.load_dict(SETTINGS)
         if isinstance(cfg, dict):
             is_ok = True
