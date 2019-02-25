@@ -1,8 +1,10 @@
 # mdmt2-ws2812
 # Плагин для [mdmTerminal2](https://github.com/Aculeasis/mdmTerminal2)
+# Подключение 
+ сигнальная линия светодиодов подключается к 19 выводу гребенки (должно быть одинаково для всех raspberry совместимых плат) 
+# Установка
 Для работы необходимо включить и настроить [SPI шину](https://micro-pi.ru/включение-шины-spi-на-orange-pi/) 
 В образе Armbian_5.59_Orangepizero_Ubuntu_xenial_default_3.4.113 все включено и настроено
-# Установка
 ```
 cd ~
 git clone https://github.com/doceme/py-spidev.git
