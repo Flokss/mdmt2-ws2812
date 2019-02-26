@@ -1,5 +1,6 @@
 # mdmt2-ws2812
 # Плагин для [mdmTerminal2](https://github.com/Aculeasis/mdmTerminal2)
+для работы плагина необходимо чтобы  [mdmTerminal2](https://github.com/Aculeasis/mdmTerminal2) запускался с root правами
 # Подключение 
  сигнальная линия светодиодов подключается к 19 выводу гребенки (должно быть одинаково для всех raspberry совместимых плат) 
 # Установка
