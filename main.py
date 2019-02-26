@@ -56,14 +56,16 @@ class Main:
         :param log: ссылка на специальный логгер, вызов: log(msg, lvl=logger.Debug)
         :param owner: ссылка на экземпляр loader.Loader
         """
-        global spi_num
+        global spi_d
+        global spi_sd
         global m_intensity
         global n_led
         self.cfg = cfg
         self.log = log
         self.own = owner
         self._settings = self._get_settings()
-        spi_num = self._settings['spi']
+        spi_d= self._settings['spi'][0]
+        spi_sd = self._settings['spi'][1]
         m_intensity = self._settings['intensity']
         n_led = self._settings['num_led']
         self._events = ('start_record', 'stop_record', 'start_talking', 'stop_talking')
@@ -71,7 +73,7 @@ class Main:
 
     @staticmethod
     def _init():
-        spi.open(spi_num, 0)
+        spi.open(spi_d,spi_sd)
 
 
     def _led_off(self):
@@ -124,7 +126,7 @@ class Main:
             self.log('stop_record')
 
     def _get_settings(self) -> dict:
-        def_cfg = {'spi': 0,  'num_led': 8, 'intensity':30}
+        def_cfg = {'spi': [0,0],  'num_led': 8, 'intensity':30}
         cfg = self.cfg.load_dict(SETTINGS)
         if isinstance(cfg, dict):
             is_ok = True
