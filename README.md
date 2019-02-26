@@ -1,11 +1,17 @@
-# mdmt2-ws2812
-# Плагин для [mdmTerminal2](https://github.com/Aculeasis/mdmTerminal2)
 
+
+# Плагин для [mdmTerminal2](https://github.com/Aculeasis/mdmTerminal2)
+# Описание
+Плагин управляет адресной светодиодной лентой на чипах ws2812
 # Подключение 
  сигнальная линия светодиодов подключается к 19 выводу гребенки (должно быть одинаково для всех raspberry совместимых плат) 
  
- 
-# Настройка SPI для 4 ядра
+# Настройка SPI для 3 ядра Armbian (Orange pi и т.д.)
+
+```
+Не требуется 
+```  
+# Настройка SPI для 4 ядра Armbian (Orange pi и т.д.)
 
 ```
 в файл  /boot/armbianEnv.txt добавить строки
@@ -20,12 +26,23 @@ extraargs=fbcon=map:0 fbcon=font:MINI4x6
 должно появится устройство 
 crw------- 1 root root 153, 0 Feb 26 05:29 /dev/spidev1.1
 ``` 
+# Настройка SPI для Raspbian (Raspberry pi)
+
+```
+sudo raspi-config
+выбрать 
+Interfacing Options
+далее 
+SPI
+далее <YES> -> <ok> -> <finish>
+ввести команду ls -l /dev/*spi*
+должны появится устройства
+
+crw-rw---- 1 root spi 153, 0 Feb 26 11:35 /dev/spidev0.0
+crw-rw---- 1 root spi 153, 1 Feb 26 11:35 /dev/spidev0.1
+``` 
 # Установка
-Для работы необходимо включить и настроить [SPI шину](https://micro-pi.ru/включение-шины-spi-на-orange-pi/) 
-
-В Armbian основанных на ядре 3.4 SPI шина включена, после установки плагина все работает (проверено на opi zero H2+ и opi pc H3)
-
-
+ 
 ```
 cd ~
 git clone https://github.com/doceme/py-spidev.git
@@ -42,10 +59,6 @@ git clone https://github.com/Flokss/mdmt2-ws2812.git
 chmod 777 /dev/spidev1.1
 
 ```
-
-
-# Описание
-Плагин управляет адресной светодиодной лентой на чипах ws2812
 
 # Настройка
 Настройки хранятся в mdmTerminal2/src/data/ws2812_config.json, файл будет создан при первом запуске:
