@@ -11,10 +11,11 @@ main.py - динамически загружаемый файл модуля. �
 
 Для успешной инициализации плагина, main.py должен содержать определенные свойства и точку входа (Main).
 """
-import spidev
+import queue
+import threading
 import time
-import sys
 
+import spidev
 
 """
 Обязательно. Не пустое имя плагина, тип - str.
@@ -39,7 +40,7 @@ SETTINGS = 'ws2812_config'
 spi = spidev.SpiDev()
 
 
-class Main:
+class Main(threading.Thread):
     """
     Обязательно. Точка входа в плагин, должна быть callable.
     Ожидается что это объект класса, экземпляр которого будет создан, но может быть и методом.
@@ -56,6 +57,7 @@ class Main:
         :param log: ссылка на специальный логгер, вызов: log(msg, lvl=logger.Debug)
         :param owner: ссылка на экземпляр loader.Loader
         """
+        super().__init__()
         global spi_d
         global spi_sd
         global m_intensity
@@ -63,8 +65,10 @@ class Main:
         self.cfg = cfg
         self.log = log
         self.own = owner
+        self._queue = queue.Queue()
+        self._work = False
         self._settings = self._get_settings()
-        spi_d= self._settings['spi'][0]
+        spi_d = self._settings['spi'][0]
         spi_sd = self._settings['spi'][1]
         m_intensity = self._settings['intensity']
         n_led = self._settings['num_led']
@@ -73,13 +77,11 @@ class Main:
 
     @staticmethod
     def _init():
-        spi.open(spi_d,spi_sd)
-
+        spi.open(spi_d, spi_sd)
 
     def _led_off(self):
-        #switch all nLED chips OFF.
-        self.write2812( spi, [[0,0,0]]*n_led)
-
+        # switch all nLED chips OFF.
+        self.write2812(spi, [[0, 0, 0]]*n_led)
 
     def _talking(self, spi):
         step_time = 0.1
@@ -87,7 +89,7 @@ class Main:
         for ld in range(n_led):
             d = [[0, 0, 0]] * n_led
             d[i_step % n_led] = [m_intensity] * 3
-            self.write2812( spi, d)
+            self.write2812(spi, d)
             i_step = (i_step + 1) % n_led
             time.sleep(step_time)
         self._led_off()
@@ -96,37 +98,47 @@ class Main:
         step_time = 0.01
         for ld in range(m_intensity):
             d = [[0, 0, ld]] * n_led
-            self.write2812( spi, d)
+            self.write2812(spi, d)
             time.sleep(step_time)
-
 
     def start(self):
         self._init()
         self._led_off()
         self.own.subscribe(self._events, self._callback)
+        self._work = True
+        super().start()
 
-
-
-    def stop(self):
+    def join(self, timeout=30):
+        if self._work:
+            self._work = False
+            self._queue.put_nowait(None)
+            super().join(timeout)
         self.own.unsubscribe(self._events, self._callback)
         self._led_off()
 
+    def run(self):
+        while self._work:
+            cmd = self._queue.get()
+            if not cmd:
+                continue
+            self._processing(cmd)
+
     def _callback(self, name, *_, **__):
+        self._queue.put_nowait(name)
+
+    def _processing(self, name):
         if name == 'start_talking':
             self._talking(spi)
-            self.log('start_talking')
-        elif name == 'stop_talking':
-            self._led_off()
-            self.log('stop_talking')
         elif name == 'start_record':
             self._record(spi)
-            self.log('start_record')
-        elif name == 'stop_record':
+        elif name in ('stop_talking', 'stop_record'):
             self._led_off()
-            self.log('stop_record')
+        else:
+            return
+        self.log(name)
 
     def _get_settings(self) -> dict:
-        def_cfg = {'spi': [0,0],  'num_led': 8, 'intensity':30}
+        def_cfg = {'spi': [0, 0],  'num_led': 8, 'intensity': 30}
         cfg = self.cfg.load_dict(SETTINGS)
         if isinstance(cfg, dict):
             is_ok = True
