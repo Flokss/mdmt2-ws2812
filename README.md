@@ -66,6 +66,7 @@ chmod 777 /dev/spidev1.1
 spi:[0,0] номер шины SPI 0,0 или 1,0, по умолчанию 0,0 (смотрите вывод ls -l /dev/*spi*) 
 (для платы Orange pi zero H2+ c 3 ядром spi:[1,0])
 (для платы Orange pi zero H2+ c 4 ядром spi:[1,1])
+(для платы Orange pi zero plus H5 c 4 ядром spi:[1,1])
 (для платы Orange pi PC H3 c 3 ядром spi:[0,0])
 (для платы Raspberry pi c 4 ядром spi:[0,0])
 
