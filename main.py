@@ -1,44 +1,14 @@
-"""
-Технически, плагины являются модулями и мало чем отличаются от базовых систем загружаемых в loader.py,
-но т.к. "модули" уже заняты - пусть будут плагины. Основные отличия плагинов:
-- Хранятся в директории src/plugins/, содержимое которой занесено в .gitignore терминала.
-- Загружаются и запускаются динамически после запуска всех базовых систем терминала. Первыми завершают свою работу.
-- Терминал никак не зависит от плагинов.
 
-Путь до плагина выглядит как mdmTerminal2/src/plugins/folder/main.py, где:
-folder - директория с плагином, ее имя не имеет значения.
-main.py - динамически загружаемый файл модуля. Терминал игнорирует остальные файлы и никак их не использует.
-
-Для успешной инициализации плагина, main.py должен содержать определенные свойства и точку входа (Main).
-"""
 import queue
 import threading
 import time
 
 import spidev
 
-"""
-Обязательно. Не пустое имя плагина, тип - str.
-Максимальная длинна 30 символов, не должно содержать пробельных символов, запятых и быть строго в нижнем регистре.
-Имя плагина является его идентификатором и должно быть уникально.
-"""
 NAME = 'ws2812'
-
-
-"""
-Обязательно. Версия API под которую написан плагин, тип - int.
-Если оно меньше config.ConfigHandler.API то плагин не будет загружен, а в лог будет выдано сообщение.
-API терминала увеличивается когда публичные методы, их вызов или результат вызова (у cfg, log, owner) изменяется.
-API не увеличивается при добавлении новых методов.
-Призван защитить терминал от неправильной работы плагинов.
-Если API не используется или вам все равно, можно задать заведомо большое число (999999).
-"""
 API = 30
-
-
 SETTINGS = 'ws2812_config'
 spi = spidev.SpiDev()
-
 
 class Main(threading.Thread):
     """
@@ -72,7 +42,9 @@ class Main(threading.Thread):
         spi_sd = self._settings['spi'][1]
         m_intensity = self._settings['intensity']
         n_led = self._settings['num_led']
-        self._events = ('start_record', 'stop_record', 'start_talking', 'stop_talking')
+        self._events = ('music_status', 'start_record', 'stop_record', 'start_talking', 'stop_talking',
+            'volume', 'music_volume',
+        )
         self.disable = False
 
     @staticmethod
@@ -80,7 +52,6 @@ class Main(threading.Thread):
         spi.open(spi_d, spi_sd)
 
     def _led_off(self):
-        # switch all nLED chips OFF.
         self.write2812(spi, [[0, 0, 0]]*n_led)
 
     def _talking(self, spi):
@@ -100,6 +71,16 @@ class Main(threading.Thread):
             d = [[0, 0, ld]] * n_led
             self.write2812(spi, d)
             time.sleep(step_time)
+
+    def _m_volume(self, spi, vol):
+        step_time = 0.1
+        d = [[0, 0, 0]] * n_led
+        l_cnt=round(vol/(100/n_led))
+        for ld in range(l_cnt):
+            d[ld] =[0, m_intensity,0 ]
+            self.write2812(spi, d)
+            time.sleep(step_time*5)
+        self._led_off()
 
     def start(self):
         self._init()
@@ -123,19 +104,23 @@ class Main(threading.Thread):
                 continue
             self._processing(cmd)
 
-    def _callback(self, name, *_, **__):
-        self._queue.put_nowait(name)
+    def _callback(self, name, data=None, *_, **__):
+        kwargs = {'name': name, 'data': data}
+        self._queue.put_nowait(kwargs)
+        #self.log( kwargs )
 
-    def _processing(self, name):
-        if name == 'start_talking':
+    def _processing(self, cmd):
+        if cmd['name'] == 'start_talking':
             self._talking(spi)
-        elif name == 'start_record':
+        elif cmd['name'] == 'music_volume':
+            self._m_volume(spi,cmd['data'])
+        elif cmd['name'] == 'start_record':
             self._record(spi)
-        elif name in ('stop_talking', 'stop_record'):
+        elif cmd['name'] in ('stop_talking', 'stop_record'):
             self._led_off()
         else:
             return
-        self.log(name)
+        self.log(cmd['name'])
 
     def _get_settings(self) -> dict:
         def_cfg = {'spi': [0, 0],  'num_led': 8, 'intensity': 30}
@@ -159,5 +144,4 @@ class Main(threading.Thread):
                     tx.append(((byte >> (2 * ibit + 1)) & 1) * 0x60 +
                               ((byte >> (2 * ibit + 0)) & 1) * 0x06 +
                               0x88)
-        # print [hex(v) for v in tx]
         spi.xfer(tx, int(4 / 1.05e-6))
