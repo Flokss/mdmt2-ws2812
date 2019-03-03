@@ -4,6 +4,7 @@ import threading
 import time
 
 import spidev
+from typing import Any
 
 NAME = 'ws2812'
 API = 30
@@ -11,6 +12,7 @@ SETTINGS = 'ws2812_config'
 spi = spidev.SpiDev()
 
 class Main(threading.Thread):
+    _old_volume = 0
     """
     Обязательно. Точка входа в плагин, должна быть callable.
     Ожидается что это объект класса, экземпляр которого будет создан, но может быть и методом.
@@ -42,7 +44,7 @@ class Main(threading.Thread):
         spi_sd = self._settings['spi'][1]
         m_intensity = self._settings['intensity']
         n_led = self._settings['num_led']
-        self._events = ('music_status', 'start_record', 'stop_record', 'start_talking', 'stop_talking',
+        self._events = ( 'start_record', 'stop_record', 'start_talking', 'stop_talking',
             'volume', 'music_volume',
         )
         self.disable = False
@@ -73,14 +75,30 @@ class Main(threading.Thread):
             time.sleep(step_time)
 
     def _m_volume(self, spi, vol):
-        step_time = 0.1
-        d = [[0, 0, 0]] * n_led
-        l_cnt=round(vol/(100/n_led))
-        for ld in range(l_cnt):
-            d[ld] =[0, m_intensity,0 ]
+        step_time = 0.2
+        l_cnt = round(vol/(100/n_led))
+        old_l_cnt = round(self._old_volume / (100 / n_led))
+        if self._old_volume > vol: # vol -
+            d = ([[0, m_intensity, 0]] * old_l_cnt) + ([[0, 0, 0]] * (n_led - old_l_cnt))
             self.write2812(spi, d)
-            time.sleep(step_time*5)
-        self._led_off()
+            time.sleep(step_time * 3)
+            for ld in range(old_l_cnt, l_cnt, -1):
+                d[ld-1] = [0, 0, 0]
+                self.write2812(spi, d)
+                time.sleep(step_time)
+            time.sleep(step_time * 3)
+            self._led_off()
+        else: # vol +
+            d = ([[0, m_intensity, 0]] * old_l_cnt) + ([[0, 0, 0]] * (n_led - old_l_cnt))
+            self.write2812(spi, d)
+            time.sleep(step_time * 3)
+            for ld in range( old_l_cnt, l_cnt, 1):
+                d[ld] = [0, m_intensity, 0]
+                self.write2812(spi, d)
+                time.sleep(step_time)
+            time.sleep(step_time * 3)
+            self._led_off()
+        self._old_volume=vol
 
     def start(self):
         self._init()
