@@ -13,6 +13,7 @@ spi = spidev.SpiDev()
 
 class Main(threading.Thread):
     _old_volume = 0
+    _old_s_volume = 0
     """
     Обязательно. Точка входа в плагин, должна быть callable.
     Ожидается что это объект класса, экземпляр которого будет создан, но может быть и методом.
@@ -45,7 +46,7 @@ class Main(threading.Thread):
         m_intensity = self._settings['intensity']
         n_led = self._settings['num_led']
         self._events = ( 'start_record', 'stop_record', 'start_talking', 'stop_talking',
-            'volume', 'music_volume',
+            'volume', 'music_volume','music_status'
         )
         self.disable = False
 
@@ -76,6 +77,7 @@ class Main(threading.Thread):
 
     def _m_volume(self, spi, vol):
         step_time = 0.2
+
         l_cnt = round(vol/(100/n_led))
         old_l_cnt = round(self._old_volume / (100 / n_led))
         if self._old_volume > vol: # vol -
@@ -99,6 +101,33 @@ class Main(threading.Thread):
             time.sleep(step_time * 3)
             self._led_off()
         self._old_volume=vol
+
+    def _s_volume(self, spi, vol):
+        step_time = 0.2
+
+        l_cnt = round(vol / (100 / n_led))
+        old_l_cnt = round(self._old_s_volume / (100 / n_led))
+        if self._old_s_volume > vol:  # vol -
+            d = ([[0, m_intensity, m_intensity]] * old_l_cnt) + ([[0, 0, 0]] * (n_led - old_l_cnt))
+            self.write2812(spi, d)
+            time.sleep(step_time * 3)
+            for ld in range(old_l_cnt, l_cnt, -1):
+                d[ld - 1] = [0, 0, 0]
+                self.write2812(spi, d)
+                time.sleep(step_time)
+            time.sleep(step_time * 3)
+            self._led_off()
+        else:  # vol +
+            d = ([[0, m_intensity, m_intensity]] * old_l_cnt) + ([[0, 0, 0]] * (n_led - old_l_cnt))
+            self.write2812(spi, d)
+            time.sleep(step_time * 3)
+            for ld in range(old_l_cnt, l_cnt, 1):
+                d[ld] = [0, m_intensity, m_intensity]
+                self.write2812(spi, d)
+                time.sleep(step_time)
+            time.sleep(step_time * 3)
+            self._led_off()
+        self._old_s_volume = vol
 
     def start(self):
         self._init()
@@ -125,13 +154,14 @@ class Main(threading.Thread):
     def _callback(self, name, data=None, *_, **__):
         kwargs = {'name': name, 'data': data}
         self._queue.put_nowait(kwargs)
-        #self.log( kwargs )
-
+        
     def _processing(self, cmd):
         if cmd['name'] == 'start_talking':
             self._talking(spi)
         elif cmd['name'] == 'music_volume':
             self._m_volume(spi,cmd['data'])
+        elif cmd['name'] == 'volume':
+            self._s_volume(spi,cmd['data'])
         elif cmd['name'] == 'start_record':
             self._record(spi)
         elif cmd['name'] in ('stop_talking', 'stop_record'):
