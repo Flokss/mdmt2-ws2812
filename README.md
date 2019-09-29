@@ -64,8 +64,13 @@ git clone https://github.com/Flokss/mdmt2-ws2812.git
 
 И перезапустить терминал.
 ```
-для работы без root в файл  /etc/rc.local добавить
+Запуск без root 
+
+Для плат Orange pi в файл  /etc/rc.local добавить
 chmod 777 /dev/spidev1.1
+
+Для платы Raspberry pi достаточно добавить пользователя в группу spi
+sudo usermod -a -G spi pi
 
 ```
 
