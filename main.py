@@ -2,7 +2,7 @@
 import queue
 import threading
 import time
-
+import random
 import spidev
 from typing import Any
 
@@ -44,6 +44,7 @@ class Main(threading.Thread):
         spi_d = self._settings['spi'][0]
         spi_sd = self._settings['spi'][1]
         m_intensity = self._settings['intensity']
+        self.stat_pl = False
         n_led = self._settings['num_led']
         self._events = ( 'start_record', 'stop_record', 'start_talking', 'stop_talking',
             'volume', 'music_volume','music_status'
@@ -60,20 +61,27 @@ class Main(threading.Thread):
     def _talking(self, spi):
         step_time = 0.1
         i_step = 0
-        for ld in range(n_led):
-            d = [[0, 0, 0]] * n_led
-            d[i_step % n_led] = [m_intensity] * 3
-            self.write2812(spi, d)
-            i_step = (i_step + 1) % n_led
+        while self.stat_pl:
+            for ld in range(n_led):
+                d = [[0, 0, 0]] * n_led
+                d[i_step % n_led] = [m_intensity] * random.randint(1, 4)
+                self.write2812(spi, d)
+                i_step = (i_step + 1) % n_led
+                time.sleep(step_time)
             time.sleep(step_time)
         self._led_off()
 
     def _record(self, spi):
         step_time = 0.01
-        for ld in range(m_intensity):
-            d = [[0, 0, ld]] * n_led
-            self.write2812(spi, d)
-            time.sleep(step_time)
+        while self.stat_pl:
+            for ld in range(m_intensity):
+                d = [[0, 0, ld]] * n_led
+                self.write2812(spi, d)
+                time.sleep(step_time)
+            for ld in range(m_intensity,0,-1):
+                d = [[0, 0, ld]] * n_led
+                self.write2812(spi, d)
+                time.sleep(step_time)   
 
     def _m_volume(self, spi, vol):
         step_time = 0.2
@@ -139,6 +147,7 @@ class Main(threading.Thread):
     def join(self, timeout=30):
         if self._work:
             self._work = False
+            self.stat_pl=False
             self._queue.put_nowait(None)
             super().join(timeout)
         self.own.unsubscribe(self._events, self._callback)
@@ -152,17 +161,20 @@ class Main(threading.Thread):
             self._processing(cmd)
 
     def _callback(self, name, data=None, *_, **__):
+        self.stat_pl=False
         kwargs = {'name': name, 'data': data}
         self._queue.put_nowait(kwargs)
         
     def _processing(self, cmd):
         if cmd['name'] == 'start_talking':
+            self.stat_pl=True
             self._talking(spi)
         elif cmd['name'] == 'music_volume':
             self._m_volume(spi,cmd['data'])
         elif cmd['name'] == 'volume':
             self._s_volume(spi,cmd['data'])
         elif cmd['name'] == 'start_record':
+            self.stat_pl=True
             self._record(spi)
         elif cmd['name'] in ('stop_talking', 'stop_record'):
             self._led_off()
